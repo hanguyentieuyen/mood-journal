@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, FlatList } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Calendar } from 'react-native-calendars';
+import { Calendar, DateData } from 'react-native-calendars';
 import { useStore } from '../services/store';
 import { theme } from '../constants/theme';
 import { MOODS } from '../constants/moods';
@@ -9,28 +9,52 @@ import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types';
 import { format } from 'date-fns';
+import { useTheme } from '../constants/ThemeContext';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'Home'>;
 
 const HomeScreen = () => {
     const { entries } = useStore();
     const navigation = useNavigation<NavigationProp>();
-
-    const markedDates = useMemo(() => {
-        const marks: any = {};
-        entries.forEach((entry) => {
-            const dateStr = format(entry.timestamp, 'yyyy-MM-dd');
-            marks[dateStr] = {
-                marked: true,
-                dotColor: entry.color,
-            };
-        });
-        return marks;
-    }, [entries]);
+    const { colors } = useTheme();
+    const styles = useMemo(() => createStyles(colors), [colors]);
 
     const recentEntries = useMemo(() => {
         return [...entries].sort((a, b) => b.timestamp - a.timestamp).slice(0, 5);
     }, [entries]);
+
+    const DayComponent = ({ date, state }: { date?: DateData; state?: string }) => {
+        if (!date) return <View />;
+
+        const entry = entries.find(
+            (e) => format(e.timestamp, 'yyyy-MM-dd') === date.dateString
+        );
+        const mood = entry ? MOODS.find((m) => m.id === entry.moodId) : null;
+
+        return (
+            <TouchableOpacity
+                onPress={() =>
+                    entry ? navigation.navigate('EntryDetail', { entryId: entry.id }) : null
+                }
+                style={[
+                    styles.dayContainer,
+                    entry && { backgroundColor: entry.color },
+                    state === 'today' && { borderColor: colors.primary, borderWidth: 2 },
+                ]}
+            >
+                <Text
+                    style={[
+                        styles.dayText,
+                        entry ? { color: '#FFF' } : { color: colors.text },
+                        state === 'disabled' && { color: colors.textSecondary },
+                    ]}
+                >
+                    {date.day}
+                </Text>
+                {mood && <Text style={styles.dayEmoji}>{mood.emoji}</Text>}
+            </TouchableOpacity>
+        );
+    };
 
     const renderEntryObj = ({ item }: { item: any }) => {
         const mood = MOODS.find((m) => m.id === item.moodId);
@@ -44,10 +68,20 @@ const HomeScreen = () => {
                     <Text style={styles.entryDate}>
                         {format(item.timestamp, 'MMM d, h:mm a')}
                     </Text>
-                    {item.note && (
+                    {item.note ? (
                         <Text style={styles.entryNote} numberOfLines={1}>
                             {item.note}
                         </Text>
+                    ) : null}
+                    {/* Show tags if available */}
+                    {item.tags && item.tags.length > 0 && (
+                        <View style={styles.tagsRow}>
+                            {item.tags.map((tag: string) => (
+                                <Text key={tag} style={styles.tag}>
+                                    #{tag}
+                                </Text>
+                            ))}
+                        </View>
                     )}
                 </View>
             </TouchableOpacity>
@@ -67,21 +101,22 @@ const HomeScreen = () => {
             </View>
 
             <Calendar
-                markedDates={markedDates}
+                dayComponent={DayComponent}
                 theme={{
-                    backgroundColor: theme.colors.light.background,
-                    calendarBackground: theme.colors.light.background,
-                    textSectionTitleColor: theme.colors.light.textSecondary,
-                    selectedDayBackgroundColor: theme.colors.primary,
+                    backgroundColor: colors.background,
+                    calendarBackground: colors.background,
+                    textSectionTitleColor: colors.textSecondary,
+                    selectedDayBackgroundColor: colors.primary,
                     selectedDayTextColor: '#ffffff',
-                    todayTextColor: theme.colors.primary,
-                    dayTextColor: theme.colors.light.text,
-                    textDisabledColor: '#d9e1e8',
-                    arrowColor: theme.colors.primary,
-                    monthTextColor: theme.colors.light.text,
-                    indicatorColor: theme.colors.primary,
+                    todayTextColor: colors.primary,
+                    dayTextColor: colors.text,
+                    textDisabledColor: colors.textSecondary, // '#d9e1e8'
+                    arrowColor: colors.primary,
+                    monthTextColor: colors.text,
+                    indicatorColor: colors.primary,
                 }}
                 style={styles.calendar}
+                key={colors.background} // Force re-render on theme change
             />
 
             <View style={styles.recentContainer}>
@@ -107,10 +142,10 @@ const HomeScreen = () => {
     );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: typeof theme.colors.light) => StyleSheet.create({
     safeArea: {
         flex: 1,
-        backgroundColor: theme.colors.light.background,
+        backgroundColor: colors.background,
     },
     container: {
         flex: 1,
@@ -121,14 +156,14 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         padding: theme.spacing.md,
         borderBottomWidth: 1,
-        borderBottomColor: theme.colors.light.border,
+        borderBottomColor: colors.border,
     },
     headerButton: {
         fontSize: 24,
     },
     title: {
         ...theme.typography.h1,
-        color: theme.colors.light.text,
+        color: colors.text,
     },
     calendar: {
         marginBottom: theme.spacing.md,
@@ -144,7 +179,7 @@ const styles = StyleSheet.create({
     sectionTitle: {
         ...theme.typography.h2,
         marginBottom: theme.spacing.sm,
-        color: theme.colors.light.text,
+        color: colors.text,
     },
     listContent: {
         paddingBottom: 80, // Space for FAB
@@ -153,7 +188,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         padding: theme.spacing.md,
-        backgroundColor: theme.colors.light.card,
+        backgroundColor: colors.card,
         borderRadius: theme.borderRadius.md,
         marginBottom: theme.spacing.sm,
         borderLeftWidth: 4,
@@ -167,16 +202,26 @@ const styles = StyleSheet.create({
     },
     entryDate: {
         ...theme.typography.caption,
-        color: theme.colors.light.textSecondary,
+        color: colors.textSecondary,
         marginBottom: 2,
     },
     entryNote: {
         ...theme.typography.body,
-        color: theme.colors.light.text,
+        color: colors.text,
+    },
+    tagsRow: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        marginTop: 4,
+    },
+    tag: {
+        fontSize: 12,
+        color: colors.textSecondary,
+        marginRight: 8,
     },
     emptyText: {
         textAlign: 'center',
-        color: theme.colors.light.textSecondary,
+        color: colors.textSecondary,
         marginTop: theme.spacing.xl,
     },
     fab: {
@@ -199,6 +244,23 @@ const styles = StyleSheet.create({
         fontSize: 32,
         color: '#fff',
         marginTop: -2,
+    },
+    dayContainer: {
+        width: 32,
+        height: 32,
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderRadius: 16,
+    },
+    dayText: {
+        fontSize: 14,
+        fontWeight: 'bold',
+    },
+    dayEmoji: {
+        fontSize: 10,
+        position: 'absolute',
+        bottom: -4,
+        right: -4,
     },
 });
 

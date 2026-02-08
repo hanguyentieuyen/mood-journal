@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert } from 'react-native';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -9,6 +9,7 @@ import { RootStackParamList } from '../types';
 import { useStore } from '../services/store';
 import { theme } from '../constants/theme';
 import { MOODS } from '../constants/moods';
+import { useTheme } from '../constants/ThemeContext';
 
 type DetailScreenRouteProp = RouteProp<RootStackParamList, 'EntryDetail'>;
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'EntryDetail'>;
@@ -18,6 +19,8 @@ const EntryDetailScreen = () => {
     const route = useRoute<DetailScreenRouteProp>();
     const { entryId } = route.params;
     const { entries, deleteEntry } = useStore();
+    const { colors } = useTheme();
+    const styles = useMemo(() => createStyles(colors), [colors]);
 
     const entry = entries.find((e) => e.id === entryId);
     const mood = MOODS.find((m) => m.id === entry?.moodId);
@@ -60,9 +63,17 @@ const EntryDetailScreen = () => {
                 <Text style={styles.date}>
                     {format(entry.timestamp, 'MMMM d, yyyy')}
                 </Text>
-                <TouchableOpacity onPress={handleDelete}>
-                    <Text style={[styles.headerButton, styles.deleteText]}>Delete</Text>
-                </TouchableOpacity>
+                <View style={styles.headerRight}>
+                    <TouchableOpacity
+                        onPress={() => navigation.navigate('AddEntry', { entry })}
+                        style={{ marginRight: 16 }}
+                    >
+                        <Text style={styles.headerButton}>Edit</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={handleDelete}>
+                        <Text style={[styles.headerButton, styles.deleteText]}>Delete</Text>
+                    </TouchableOpacity>
+                </View>
             </View>
 
             <ScrollView contentContainerStyle={styles.content}>
@@ -82,31 +93,35 @@ const EntryDetailScreen = () => {
                         {format(entry.timestamp, 'h:mm a')}
                     </Text>
 
-                    {entry.note && (
+                    {entry.note ? (
                         <View style={styles.noteContainer}>
                             <Text style={styles.note}>{entry.note}</Text>
                         </View>
-                    )}
+                    ) : null}
 
-                    <View style={styles.tagsContainer}>
-                        {/* Placeholder for future tags feature */}
-                        <Text style={styles.tag}>#{mood.id}</Text>
-                    </View>
+                    {entry.tags && entry.tags.length > 0 && (
+                        <View style={styles.tagsContainer}>
+                            {entry.tags.map(tag => (
+                                <Text key={tag} style={styles.tag}>#{tag}</Text>
+                            ))}
+                        </View>
+                    )}
                 </View>
             </ScrollView>
         </SafeAreaView>
     );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: typeof theme.colors.light) => StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: theme.colors.light.background,
+        backgroundColor: colors.background,
     },
     centerContainer: {
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
+        backgroundColor: colors.background,
     },
     header: {
         flexDirection: 'row',
@@ -114,7 +129,11 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         padding: theme.spacing.md,
         borderBottomWidth: 1,
-        borderBottomColor: theme.colors.light.border,
+        borderBottomColor: colors.border,
+    },
+    headerRight: {
+        flexDirection: 'row',
+        alignItems: 'center',
     },
     headerButton: {
         fontSize: 16,
@@ -123,6 +142,7 @@ const styles = StyleSheet.create({
     date: {
         ...theme.typography.h2,
         fontSize: 16,
+        color: colors.text,
     },
     deleteText: {
         color: theme.colors.error,
@@ -159,37 +179,41 @@ const styles = StyleSheet.create({
     },
     timeLabel: {
         ...theme.typography.caption,
-        color: theme.colors.light.textSecondary,
+        color: colors.textSecondary,
         marginBottom: theme.spacing.sm,
     },
     noteContainer: {
-        backgroundColor: theme.colors.light.card,
+        backgroundColor: colors.card,
         padding: theme.spacing.md,
         borderRadius: theme.borderRadius.md,
         marginBottom: theme.spacing.md,
     },
     note: {
         ...theme.typography.body,
-        color: theme.colors.light.text,
+        color: colors.text,
         lineHeight: 24,
     },
     tagsContainer: {
         flexDirection: 'row',
         flexWrap: 'wrap',
+        marginTop: theme.spacing.sm,
     },
     tag: {
-        backgroundColor: theme.colors.light.card,
+        backgroundColor: colors.card,
         paddingHorizontal: theme.spacing.sm,
         paddingVertical: theme.spacing.xs,
         borderRadius: theme.borderRadius.round,
         marginRight: theme.spacing.sm,
-        color: theme.colors.light.textSecondary,
+        marginBottom: theme.spacing.sm,
+        color: colors.textSecondary,
         fontSize: 12,
+        borderWidth: 1,
+        borderColor: colors.border,
     },
     errorText: {
         ...theme.typography.h2,
         marginBottom: theme.spacing.md,
-        color: theme.colors.light.text,
+        color: colors.text,
     },
     backButton: {
         color: theme.colors.primary,

@@ -1,5 +1,6 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, FlatList } from 'react-native';
+import { useTheme } from '../constants/ThemeContext';
 import Animated, {
     useAnimatedStyle,
     useSharedValue,
@@ -18,10 +19,12 @@ const MoodItem = ({
     item,
     isSelected,
     onPress,
+    styles,
 }: {
     item: MoodOption;
     isSelected: boolean;
     onPress: () => void;
+    styles: any;
 }) => {
     const scale = useSharedValue(isSelected ? 1.2 : 1);
     const opacity = useSharedValue(isSelected ? 1 : 0.6);
@@ -52,6 +55,9 @@ export const MoodPicker: React.FC<MoodPickerProps> = ({
     selectedMoodId,
     onSelect,
 }) => {
+    const { colors } = useTheme();
+    const styles = useMemo(() => createStyles(colors), [colors]);
+
     return (
         <View style={styles.container}>
             <FlatList
@@ -65,6 +71,7 @@ export const MoodPicker: React.FC<MoodPickerProps> = ({
                         item={item}
                         isSelected={item.id === selectedMoodId}
                         onPress={() => onSelect(item)}
+                        styles={styles}
                     />
                 )}
             />
@@ -72,7 +79,7 @@ export const MoodPicker: React.FC<MoodPickerProps> = ({
     );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: typeof theme.colors.light) => StyleSheet.create({
     container: {
         height: 120,
         marginVertical: theme.spacing.md,
@@ -90,7 +97,7 @@ const styles = StyleSheet.create({
         width: 60,
         height: 60,
         borderRadius: 30,
-        backgroundColor: theme.colors.light.card,
+        backgroundColor: colors.card,
         justifyContent: 'center',
         alignItems: 'center',
         shadowColor: '#000',
@@ -105,11 +112,11 @@ const styles = StyleSheet.create({
     label: {
         marginTop: theme.spacing.xs,
         fontSize: 12,
-        color: theme.colors.light.textSecondary,
+        color: colors.textSecondary,
         textAlign: 'center',
     },
     selectedLabel: {
-        color: theme.colors.light.text,
+        color: colors.text,
         fontWeight: 'bold',
     },
 });

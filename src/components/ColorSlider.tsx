@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { theme } from '../constants/theme';
@@ -9,11 +9,16 @@ interface ColorSliderProps {
     onSelect: (color: string) => void;
 }
 
+import { useTheme } from '../constants/ThemeContext';
+
 export const ColorSlider: React.FC<ColorSliderProps> = ({
-    colors,
+    colors: availableColors,
     selectedColor,
     onSelect,
 }) => {
+    const { colors } = useTheme();
+    const styles = useMemo(() => createStyles(colors), [colors]);
+
     return (
         <View style={styles.container}>
             <LinearGradient
@@ -42,7 +47,7 @@ export const ColorSlider: React.FC<ColorSliderProps> = ({
     );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: typeof theme.colors.light) => StyleSheet.create({
     container: {
         marginVertical: theme.spacing.md,
         paddingHorizontal: theme.spacing.md,
@@ -64,7 +69,7 @@ const styles = StyleSheet.create({
         height: 30,
         borderRadius: 15,
         borderWidth: 3,
-        borderColor: '#FFF',
+        borderColor: colors.card,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.2,
@@ -74,6 +79,6 @@ const styles = StyleSheet.create({
     selectedDot: {
         transform: [{ scale: 1.2 }],
         borderWidth: 2,
-        borderColor: theme.colors.light.text,
+        borderColor: colors.text,
     },
 });

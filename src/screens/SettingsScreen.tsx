@@ -1,13 +1,24 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Switch, Alert, ScrollView } from 'react-native';
+import React, { useMemo } from 'react';
+import {
+    View,
+    Text,
+    StyleSheet,
+    TouchableOpacity,
+    Switch,
+    Alert,
+    ScrollView,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { useStore } from '../services/store';
 import { theme } from '../constants/theme';
+import { useTheme } from '../constants/ThemeContext';
 
 const SettingsScreen = () => {
     const navigation = useNavigation();
-    const { theme: currentTheme, setTheme, clearEntries } = useStore();
+    const { clearEntries } = useStore();
+    const { themeType, setTheme, colors } = useTheme();
+    const styles = useMemo(() => createStyles(colors), [colors]);
 
     const handleClearData = () => {
         Alert.alert(
@@ -42,11 +53,12 @@ const SettingsScreen = () => {
                     <Text style={styles.sectionTitle}>Preferences</Text>
 
                     <View style={styles.row}>
-                        <Text style={styles.rowLabel}>Dark Mode (System)</Text>
+                        <Text style={styles.rowLabel}>Dark Mode</Text>
                         <Switch
-                            value={currentTheme === 'dark'}
+                            value={themeType === 'dark'}
                             onValueChange={(val) => setTheme(val ? 'dark' : 'light')}
-                            trackColor={{ false: '#767577', true: theme.colors.primary }}
+                            trackColor={{ false: '#767577', true: colors.primary }}
+                            thumbColor={'#f4f3f4'}
                         />
                     </View>
                 </View>
@@ -55,7 +67,9 @@ const SettingsScreen = () => {
                     <Text style={styles.sectionTitle}>Data</Text>
 
                     <TouchableOpacity style={styles.row} onPress={handleClearData}>
-                        <Text style={[styles.rowLabel, styles.dangerText]}>Clear All Data</Text>
+                        <Text style={[styles.rowLabel, styles.dangerText]}>
+                            Clear All Data
+                        </Text>
                     </TouchableOpacity>
                 </View>
 
@@ -69,10 +83,10 @@ const SettingsScreen = () => {
     );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: typeof theme.colors.light) => StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: theme.colors.light.background,
+        backgroundColor: colors.background,
     },
     header: {
         flexDirection: 'row',
@@ -80,11 +94,12 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         padding: theme.spacing.md,
         borderBottomWidth: 1,
-        borderBottomColor: theme.colors.light.border,
+        borderBottomColor: colors.border,
     },
     title: {
         ...theme.typography.h2,
         fontSize: 18,
+        color: colors.text,
     },
     backButton: {
         color: theme.colors.primary,
@@ -99,7 +114,7 @@ const styles = StyleSheet.create({
     sectionTitle: {
         ...theme.typography.h2,
         fontSize: 14,
-        color: theme.colors.light.textSecondary,
+        color: colors.textSecondary,
         marginBottom: theme.spacing.sm,
         textTransform: 'uppercase',
     },
@@ -109,18 +124,19 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         paddingVertical: theme.spacing.md,
         borderBottomWidth: 1,
-        borderBottomColor: theme.colors.light.border,
+        borderBottomColor: colors.border,
     },
     rowLabel: {
         ...theme.typography.body,
         fontSize: 16,
+        color: colors.text,
     },
     dangerText: {
         color: theme.colors.error,
     },
     aboutText: {
         ...theme.typography.body,
-        color: theme.colors.light.textSecondary,
+        color: colors.textSecondary,
         marginBottom: theme.spacing.xs,
     },
 });
