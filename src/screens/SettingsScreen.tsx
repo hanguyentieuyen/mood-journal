@@ -13,10 +13,11 @@ import { useNavigation } from '@react-navigation/native';
 import { useStore } from '../services/store';
 import { theme } from '../constants/theme';
 import { useTheme } from '../constants/ThemeContext';
+import { requestPermissionsAsync, scheduleDailyReminder, cancelAllReminders } from '../services/notifications';
 
 const SettingsScreen = () => {
     const navigation = useNavigation();
-    const { clearEntries } = useStore();
+    const { clearEntries, reminder, updateReminder } = useStore();
     const { themeType, setTheme, colors } = useTheme();
     const styles = useMemo(() => createStyles(colors), [colors]);
 
@@ -38,6 +39,21 @@ const SettingsScreen = () => {
         );
     };
 
+    const handleToggleReminder = async (val: boolean) => {
+        if (val) {
+            const hasPermission = await requestPermissionsAsync();
+            if (!hasPermission) {
+                Alert.alert('Permission Required', 'Please enable notifications in your device settings.');
+                return;
+            }
+            await scheduleDailyReminder(reminder.time);
+            updateReminder({ enabled: true });
+        } else {
+            await cancelAllReminders();
+            updateReminder({ enabled: false });
+        }
+    };
+
     return (
         <SafeAreaView style={styles.container}>
             <View style={styles.header}>
@@ -57,6 +73,19 @@ const SettingsScreen = () => {
                         <Switch
                             value={themeType === 'dark'}
                             onValueChange={(val) => setTheme(val ? 'dark' : 'light')}
+                            trackColor={{ false: '#767577', true: colors.primary }}
+                            thumbColor={'#f4f3f4'}
+                        />
+                    </View>
+
+                    <View style={styles.row}>
+                        <View>
+                            <Text style={styles.rowLabel}>Daily Reminder</Text>
+                            <Text style={styles.rowSubLabel}>At {reminder.time}</Text>
+                        </View>
+                        <Switch
+                            value={reminder.enabled}
+                            onValueChange={handleToggleReminder}
                             trackColor={{ false: '#767577', true: colors.primary }}
                             thumbColor={'#f4f3f4'}
                         />
@@ -130,6 +159,11 @@ const createStyles = (colors: typeof theme.colors.light) => StyleSheet.create({
         ...theme.typography.body,
         fontSize: 16,
         color: colors.text,
+    },
+    rowSubLabel: {
+        ...theme.typography.caption,
+        color: colors.textSecondary,
+        marginTop: 2,
     },
     dangerText: {
         color: theme.colors.error,

@@ -8,6 +8,7 @@ import AddEntryScreen from './src/screens/AddEntryScreen';
 import EntryDetailScreen from './src/screens/EntryDetailScreen';
 import AnalyticsScreen from './src/screens/AnalyticsScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
+import ManageMoodsScreen from './src/screens/ManageMoodsScreen';
 import { RootStackParamList } from './src/types';
 import { theme } from './src/constants/theme';
 
@@ -48,6 +49,11 @@ const RootNavigator = () => {
         <Stack.Screen name="EntryDetail" component={EntryDetailScreen} />
         <Stack.Screen name="Stats" component={AnalyticsScreen} />
         <Stack.Screen name="Settings" component={SettingsScreen} />
+        <Stack.Screen 
+          name="ManageMoods" 
+          component={ManageMoodsScreen} 
+          options={{ presentation: 'modal' }}
+        />
       </Stack.Navigator>
       <StatusBar style={themeType === 'dark' ? 'light' : 'dark'} />
     </NavigationContainer>

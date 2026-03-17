@@ -9,6 +9,12 @@ import Animated, {
 } from 'react-native-reanimated';
 import { MOODS, MoodOption } from '../constants/moods';
 import { theme } from '../constants/theme';
+import { useStore } from '../services/store';
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { RootStackParamList } from '../types';
+
+type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 interface MoodPickerProps {
     selectedMoodId?: string;
@@ -57,11 +63,29 @@ export const MoodPicker: React.FC<MoodPickerProps> = ({
 }) => {
     const { colors } = useTheme();
     const styles = useMemo(() => createStyles(colors), [colors]);
+    const { customMoods } = useStore();
+    const navigation = useNavigation<NavigationProp>();
+
+    const allMoods = useMemo(() => {
+        const customOptions: MoodOption[] = customMoods.map((cm) => ({
+            id: cm.id,
+            label: cm.name,
+            emoji: cm.emoji,
+            colors: [cm.color, cm.color], // Fake gradient
+            defaultIntensity: 5,
+            value: 3, // Default value for analytics
+        }));
+        return [
+            ...MOODS,
+            ...customOptions,
+            { id: 'add_new', label: 'New', emoji: '➕', colors: [colors.border, colors.border], defaultIntensity: 5, value: 3 } as MoodOption,
+        ];
+    }, [customMoods, colors.border]);
 
     return (
         <View style={styles.container}>
             <FlatList
-                data={MOODS}
+                data={allMoods}
                 horizontal
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={styles.listContainer}
@@ -70,7 +94,13 @@ export const MoodPicker: React.FC<MoodPickerProps> = ({
                     <MoodItem
                         item={item}
                         isSelected={item.id === selectedMoodId}
-                        onPress={() => onSelect(item)}
+                        onPress={() => {
+                            if (item.id === 'add_new') {
+                                navigation.navigate('ManageMoods');
+                            } else {
+                                onSelect(item);
+                            }
+                        }}
                         styles={styles}
                     />
                 )}

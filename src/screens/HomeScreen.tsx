@@ -14,7 +14,7 @@ import { useTheme } from '../constants/ThemeContext';
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'Home'>;
 
 const HomeScreen = () => {
-    const { entries } = useStore();
+    const { entries, stats, customMoods } = useStore();
     const navigation = useNavigation<NavigationProp>();
     const { colors } = useTheme();
     const styles = useMemo(() => createStyles(colors), [colors]);
@@ -29,7 +29,7 @@ const HomeScreen = () => {
         const entry = entries.find(
             (e) => format(e.timestamp, 'yyyy-MM-dd') === date.dateString
         );
-        const mood = entry ? MOODS.find((m) => m.id === entry.moodId) : null;
+        const mood = entry ? [...MOODS, ...customMoods].find((m) => m.id === entry.moodId) : null;
 
         return (
             <TouchableOpacity
@@ -57,7 +57,7 @@ const HomeScreen = () => {
     };
 
     const renderEntryObj = ({ item }: { item: any }) => {
-        const mood = MOODS.find((m) => m.id === item.moodId);
+        const mood = [...MOODS, ...customMoods].find((m) => m.id === item.moodId);
         return (
             <TouchableOpacity
                 style={[styles.entryCard, { borderLeftColor: item.color }]}
@@ -91,7 +91,14 @@ const HomeScreen = () => {
     return (
         <SafeAreaView style={styles.safeArea}>
             <View style={styles.header}>
-                <Text style={styles.title}>Mood Journal</Text>
+                <View>
+                    <Text style={styles.title}>Mood Journal</Text>
+                    {stats?.currentStreak > 0 && (
+                        <Text style={styles.streakText}>
+                            🔥 {stats.currentStreak} Day{stats.currentStreak > 1 ? 's' : ''} Streak
+                        </Text>
+                    )}
+                </View>
                 <TouchableOpacity onPress={() => navigation.navigate('Stats')}>
                     <Text style={styles.headerButton}>📊</Text>
                 </TouchableOpacity>
@@ -134,7 +141,7 @@ const HomeScreen = () => {
 
             <TouchableOpacity
                 style={styles.fab}
-                onPress={() => navigation.navigate('AddEntry')}
+                onPress={() => navigation.navigate("AddEntry")}
             >
                 <Text style={styles.fabIcon}>+</Text>
             </TouchableOpacity>
@@ -164,6 +171,12 @@ const createStyles = (colors: typeof theme.colors.light) => StyleSheet.create({
     title: {
         ...theme.typography.h1,
         color: colors.text,
+    },
+    streakText: {
+        fontSize: 14,
+        fontWeight: 'bold',
+        color: '#ff9800',
+        marginTop: 2,
     },
     calendar: {
         marginBottom: theme.spacing.md,
