@@ -5,8 +5,10 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { StatusBar } from 'expo-status-bar';
 import HomeScreen from './src/screens/HomeScreen';
 import AddEntryScreen from './src/screens/AddEntryScreen';
+import DayEntriesScreen from './src/screens/DayEntriesScreen';
 import EntryDetailScreen from './src/screens/EntryDetailScreen';
 import AnalyticsScreen from './src/screens/AnalyticsScreen';
+import WeeklyReviewScreen from './src/screens/WeeklyReviewScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
 import ManageMoodsScreen from './src/screens/ManageMoodsScreen';
 import { RootStackParamList } from './src/types';
@@ -46,8 +48,10 @@ const RootNavigator = () => {
           component={AddEntryScreen}
           options={{ presentation: 'modal' }}
         />
+        <Stack.Screen name="DayEntries" component={DayEntriesScreen} />
         <Stack.Screen name="EntryDetail" component={EntryDetailScreen} />
         <Stack.Screen name="Stats" component={AnalyticsScreen} />
+        <Stack.Screen name="WeeklyReview" component={WeeklyReviewScreen} />
         <Stack.Screen name="Settings" component={SettingsScreen} />
         <Stack.Screen 
           name="ManageMoods" 

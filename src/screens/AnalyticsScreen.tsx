@@ -1,31 +1,35 @@
 import React, { useMemo, useState } from 'react';
 import {
-    View,
-    Text,
-    StyleSheet,
     Dimensions,
     ScrollView,
+    StyleSheet,
+    Text,
     TouchableOpacity,
+    View,
 } from 'react-native';
 import { PieChart, LineChart } from 'react-native-chart-kit';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { format, isAfter, subDays } from 'date-fns';
 import { useStore } from '../services/store';
 import { theme } from '../constants/theme';
-import { MOODS } from '../constants/moods';
 import { useTheme } from '../constants/ThemeContext';
-import { format, subDays, startOfWeek, startOfMonth, startOfYear, isAfter, isSameDay } from 'date-fns';
+import { RootStackParamList } from '../types';
+import { createResolvedMoodMap } from '../services/moodResolver';
 
 const screenWidth = Dimensions.get('window').width;
 
 type TimeRange = 'week' | 'month' | 'year';
+type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'Stats'>;
 
 const AnalyticsScreen = () => {
-    const navigation = useNavigation();
-    const { entries } = useStore();
+    const navigation = useNavigation<NavigationProp>();
+    const { entries, customMoods } = useStore();
     const { colors } = useTheme();
     const styles = useMemo(() => createStyles(colors), [colors]);
     const [timeRange, setTimeRange] = useState<TimeRange>('week');
+    const moodMap = useMemo(() => createResolvedMoodMap(customMoods), [customMoods]);
 
     const filteredEntries = useMemo(() => {
         const now = new Date();
@@ -49,67 +53,54 @@ const AnalyticsScreen = () => {
     const stats = useMemo(() => {
         if (filteredEntries.length === 0) {
             return {
-                averageMood: 0,
+                averageMood: '0.0',
                 mostFrequent: 'None',
                 streak: 0,
                 total: 0,
             };
         }
 
-        // Calculate Average Mood Value
         const totalValue = filteredEntries.reduce((sum, entry) => {
-            const mood = MOODS.find((m) => m.id === entry.moodId);
-            return sum + (mood?.value || 3);
+            const mood = moodMap.get(entry.moodId);
+            return sum + (mood?.value ?? 3);
         }, 0);
         const avg = totalValue / filteredEntries.length;
 
-        // Calculate Most Frequent
-        const counts: { [key: string]: number } = {};
-        filteredEntries.forEach((e) => {
-            counts[e.moodId] = (counts[e.moodId] || 0) + 1;
+        const moodCounts = new Map<string, number>();
+        filteredEntries.forEach((entry) => {
+            moodCounts.set(entry.moodId, (moodCounts.get(entry.moodId) ?? 0) + 1);
         });
-        const mostFrequentId = Object.keys(counts).reduce((a, b) =>
-            counts[a] > counts[b] ? a : b
-        );
-        const mostFrequentLabel = MOODS.find((m) => m.id === mostFrequentId)?.label || 'None';
 
-        // Calculate Streak (Current Streak based on ALL entries, not just filtered)
-        // Sort entries by date desc
-        const sortedEntries = [...entries].sort((a, b) => b.timestamp - a.timestamp);
+        const mostFrequentId = Array.from(moodCounts.entries()).sort((left, right) => {
+            if (right[1] !== left[1]) {
+                return right[1] - left[1];
+            }
+
+            const leftLabel = moodMap.get(left[0])?.label ?? left[0];
+            const rightLabel = moodMap.get(right[0])?.label ?? right[0];
+            return leftLabel.localeCompare(rightLabel);
+        })[0]?.[0];
+
+        const entryDates = new Set(entries.map((entry) => format(entry.timestamp, 'yyyy-MM-dd')));
         let currentStreak = 0;
-        let checkDate = new Date(); // Start checking from today
-
-        // Use a Set of unique dates with entries (formatted as YYYY-MM-DD)
-        const entryDates = new Set(
-            sortedEntries.map((e) => format(e.timestamp, 'yyyy-MM-dd'))
-        );
-
-        // Check back day by day
-        // Allow streak to continue if today has no entry yet but yesterday did?
-        // Usually, streak includes today if completed, or yesterday.
-        // Let's verify consecutive days.
+        let checkDate = new Date();
         let streakActive = true;
         let daysChecked = 0;
-
-        // Simple approach: Check today, if no, check yesterday. If no, streak broken.
-        // If yes, count 1, go back 1 day.
-
-        // Normalize today
         const todayStr = format(new Date(), 'yyyy-MM-dd');
+
         if (entryDates.has(todayStr)) {
             currentStreak++;
             checkDate = subDays(checkDate, 1);
         } else {
-            // If no entry today, check if entry exists for yesterday to keep streak alive
             const yesterdayStr = format(subDays(new Date(), 1), 'yyyy-MM-dd');
             if (!entryDates.has(yesterdayStr)) {
-                streakActive = false; // No entry today or yesterday -> Streak 0
+                streakActive = false;
             } else {
-                checkDate = subDays(checkDate, 1); // Start counting from yesterday
+                checkDate = subDays(checkDate, 1);
             }
         }
 
-        while (streakActive && daysChecked < 365) { // Limit to 1 year to prevent infinite loops logic error
+        while (streakActive && daysChecked < 365) {
             const dateStr = format(checkDate, 'yyyy-MM-dd');
             if (entryDates.has(dateStr)) {
                 currentStreak++;
@@ -122,69 +113,72 @@ const AnalyticsScreen = () => {
 
         return {
             averageMood: avg.toFixed(1),
-            mostFrequent: mostFrequentLabel,
+            mostFrequent: mostFrequentId
+                ? moodMap.get(mostFrequentId)?.label ?? 'Unknown Mood'
+                : 'None',
             streak: currentStreak,
             total: filteredEntries.length,
         };
-    }, [filteredEntries, entries]);
+    }, [entries, filteredEntries, moodMap]);
 
     const pieData = useMemo(() => {
-        const moodCounts: { [key: string]: number } = {};
+        const moodCounts = new Map<string, number>();
         filteredEntries.forEach((entry) => {
-            moodCounts[entry.moodId] = (moodCounts[entry.moodId] || 0) + 1;
+            moodCounts.set(entry.moodId, (moodCounts.get(entry.moodId) ?? 0) + 1);
         });
 
-        return MOODS.map((mood) => {
-            const count = moodCounts[mood.id] || 0;
-            return {
-                name: mood.label,
-                population: count,
-                color: mood.colors[1],
-                legendFontColor: colors.textSecondary,
-                legendFontSize: 12,
-            };
-        }).filter((item) => item.population > 0);
-    }, [filteredEntries, colors]);
+        return Array.from(moodCounts.entries())
+            .map(([moodId, count]) => {
+                const mood = moodMap.get(moodId);
+                return {
+                    name: mood?.label ?? 'Unknown Mood',
+                    population: count,
+                    color: mood?.colors[1] ?? theme.colors.primary,
+                    legendFontColor: colors.textSecondary,
+                    legendFontSize: 12,
+                };
+            })
+            .sort((left, right) => right.population - left.population);
+    }, [filteredEntries, moodMap, colors.textSecondary]);
 
     const lineChartData = useMemo(() => {
-        if (filteredEntries.length === 0) return null;
+        if (filteredEntries.length === 0) {
+            return null;
+        }
 
-        // Group by date, take average value per date
-        const grouped: { [key: string]: { sum: number; count: number } } = {};
+        const grouped = new Map<string, { sum: number; count: number }>();
+        const sortedEntries = [...filteredEntries].sort((a, b) => a.timestamp - b.timestamp);
 
-        // Initialize last 7 days (for week view) or appropriate points
-        // For simplicity, just use the days present in the range or last N points
-
-        const sorted = [...filteredEntries].sort((a, b) => a.timestamp - b.timestamp);
-
-        sorted.forEach(entry => {
-            const dateStr = format(entry.timestamp, 'MM/dd');
-            const mood = MOODS.find(m => m.id === entry.moodId);
-            if (!grouped[dateStr]) grouped[dateStr] = { sum: 0, count: 0 };
-            grouped[dateStr].sum += (mood?.value || 0);
-            grouped[dateStr].count += 1;
+        sortedEntries.forEach((entry) => {
+            const dateKey = format(entry.timestamp, 'MM/dd');
+            const mood = moodMap.get(entry.moodId);
+            const current = grouped.get(dateKey) ?? { sum: 0, count: 0 };
+            grouped.set(dateKey, {
+                sum: current.sum + (mood?.value ?? 3),
+                count: current.count + 1,
+            });
         });
 
-        const labels = Object.keys(grouped);
-        const data = Object.values(grouped).map(g => g.sum / g.count);
-
-        // Limit labels for readibility if too many
-        // If > 7 points, pick every Nth point to show label? 
-        // chart-kit handles layout reasonably well but labels can overlap.
+        const points = Array.from(grouped.entries()).map(([label, value], index, array) => {
+            const interval = array.length > 7 ? Math.ceil(array.length / 7) : 1;
+            return {
+                label: index % interval === 0 ? label : '',
+                value: value.sum / value.count,
+            };
+        });
 
         return {
-            labels: labels.length > 7 ? labels.filter((_, i) => i % Math.ceil(labels.length / 7) === 0) : labels,
+            labels: points.map((point) => point.label),
             datasets: [
                 {
-                    data: data,
-                    color: (opacity = 1) => `rgba(108, 92, 231, ${opacity})`, // primary color
-                    strokeWidth: 2
-                }
+                    data: points.map((point) => point.value),
+                    color: (opacity = 1) => `rgba(108, 92, 231, ${opacity})`,
+                    strokeWidth: 2,
+                },
             ],
-            legend: ["Mood Trend"]
+            legend: ['Mood Trend'],
         };
-
-    }, [filteredEntries]);
+    }, [filteredEntries, moodMap]);
 
     return (
         <SafeAreaView style={styles.container}>
@@ -193,7 +187,7 @@ const AnalyticsScreen = () => {
                     <Text style={styles.backButton}>Back</Text>
                 </TouchableOpacity>
                 <Text style={styles.title}>Analytics</Text>
-                <View style={{ width: 40 }} />
+                <View style={styles.headerSpacer} />
             </View>
 
             <View style={styles.rangeSelector}>
@@ -219,6 +213,19 @@ const AnalyticsScreen = () => {
             </View>
 
             <ScrollView contentContainerStyle={styles.content}>
+                <TouchableOpacity
+                    style={styles.reviewCard}
+                    onPress={() => navigation.navigate('WeeklyReview')}
+                >
+                    <View style={styles.reviewCardCopy}>
+                        <Text style={styles.reviewEyebrow}>New</Text>
+                        <Text style={styles.reviewTitle}>Weekly Review</Text>
+                        <Text style={styles.reviewBody}>
+                            Open a read-only summary of your most recent completed week.
+                        </Text>
+                    </View>
+                    <Text style={styles.reviewAction}>Open</Text>
+                </TouchableOpacity>
 
                 <View style={styles.statsGrid}>
                     <View style={styles.statCard}>
@@ -227,7 +234,7 @@ const AnalyticsScreen = () => {
                     </View>
                     <View style={styles.statCard}>
                         <Text style={styles.statLabel}>Current Streak</Text>
-                        <Text style={styles.statValue}>{stats.streak} 🔥</Text>
+                        <Text style={styles.statValue}>{stats.streak}</Text>
                     </View>
                     <View style={styles.statCard}>
                         <Text style={styles.statLabel}>Avg Mood</Text>
@@ -252,13 +259,13 @@ const AnalyticsScreen = () => {
                                 backgroundGradientTo: colors.card,
                                 decimalPlaces: 1,
                                 color: (opacity = 1) => `rgba(108, 92, 231, ${opacity})`,
-                                labelColor: (opacity = 1) => colors.textSecondary,
+                                labelColor: () => colors.textSecondary,
                                 style: { borderRadius: 16 },
                                 propsForDots: {
-                                    r: "6",
-                                    strokeWidth: "2",
-                                    stroke: colors.primary
-                                }
+                                    r: '6',
+                                    strokeWidth: '2',
+                                    stroke: colors.primary,
+                                },
                             }}
                             bezier
                             style={{ marginVertical: 8, borderRadius: 16 }}
@@ -274,7 +281,7 @@ const AnalyticsScreen = () => {
                             width={screenWidth - 32}
                             height={220}
                             chartConfig={{
-                                color: (opacity = 1) => colors.text,
+                                color: () => colors.text,
                             }}
                             accessor={'population'}
                             backgroundColor={'transparent'}
@@ -286,99 +293,139 @@ const AnalyticsScreen = () => {
                         <Text style={styles.emptyText}>No data for this period.</Text>
                     )}
                 </View>
-
             </ScrollView>
         </SafeAreaView>
     );
 };
 
-const createStyles = (colors: typeof theme.colors.light) => StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: colors.background,
-    },
-    header: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        padding: theme.spacing.md,
-        borderBottomWidth: 1,
-        borderBottomColor: colors.border,
-    },
-    title: {
-        ...theme.typography.h2,
-        fontSize: 18,
-        color: colors.text,
-    },
-    backButton: {
-        color: theme.colors.primary,
-        fontSize: 16,
-    },
-    rangeSelector: {
-        flexDirection: 'row',
-        padding: theme.spacing.md,
-        justifyContent: 'center',
-        gap: 10,
-    },
-    rangeButton: {
-        paddingVertical: 8,
-        paddingHorizontal: 16,
-        borderRadius: 20,
-        backgroundColor: colors.card,
-    },
-    rangeButtonActive: {
-        backgroundColor: theme.colors.primary,
-    },
-    rangeText: {
-        color: colors.textSecondary,
-        fontWeight: '600',
-    },
-    rangeTextActive: {
-        color: '#FFF',
-    },
-    content: {
-        padding: theme.spacing.md,
-    },
-    statsGrid: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: 10,
-        marginBottom: theme.spacing.lg,
-    },
-    statCard: {
-        backgroundColor: colors.card,
-        borderRadius: theme.borderRadius.md,
-        padding: theme.spacing.md,
-        width: '48%', // Approx 2 columns
-        alignItems: 'center',
-    },
-    statLabel: {
-        fontSize: 12,
-        color: colors.textSecondary,
-        marginBottom: 4,
-    },
-    statValue: {
-        fontSize: 18,
-        fontWeight: 'bold',
-        color: theme.colors.primary,
-    },
-    chartContainer: {
-        backgroundColor: colors.card,
-        borderRadius: theme.borderRadius.lg,
-        padding: theme.spacing.md,
-        marginBottom: theme.spacing.lg,
-        alignItems: 'center',
-    },
-    chartTitle: {
-        ...theme.typography.h2,
-        marginBottom: theme.spacing.md,
-        color: colors.text,
-    },
-    emptyText: {
-        ...theme.typography.body,
-        color: colors.textSecondary,
-        marginVertical: theme.spacing.xl,
-    },
-});
+const createStyles = (colors: typeof theme.colors.light) =>
+    StyleSheet.create({
+        container: {
+            flex: 1,
+            backgroundColor: colors.background,
+        },
+        header: {
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            padding: theme.spacing.md,
+            borderBottomWidth: 1,
+            borderBottomColor: colors.border,
+        },
+        headerSpacer: {
+            width: 40,
+        },
+        title: {
+            ...theme.typography.h2,
+            fontSize: 18,
+            color: colors.text,
+        },
+        backButton: {
+            color: theme.colors.primary,
+            fontSize: 16,
+        },
+        rangeSelector: {
+            flexDirection: 'row',
+            padding: theme.spacing.md,
+            justifyContent: 'center',
+            gap: 10,
+        },
+        rangeButton: {
+            paddingVertical: 8,
+            paddingHorizontal: 16,
+            borderRadius: 20,
+            backgroundColor: colors.card,
+        },
+        rangeButtonActive: {
+            backgroundColor: theme.colors.primary,
+        },
+        rangeText: {
+            color: colors.textSecondary,
+            fontWeight: '600',
+        },
+        rangeTextActive: {
+            color: '#FFF',
+        },
+        content: {
+            padding: theme.spacing.md,
+        },
+        reviewCard: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            backgroundColor: colors.card,
+            borderRadius: theme.borderRadius.lg,
+            padding: theme.spacing.md,
+            marginBottom: theme.spacing.lg,
+            borderWidth: 1,
+            borderColor: colors.border,
+        },
+        reviewCardCopy: {
+            flex: 1,
+            paddingRight: theme.spacing.md,
+        },
+        reviewEyebrow: {
+            ...theme.typography.caption,
+            color: theme.colors.primary,
+            marginBottom: 4,
+            textTransform: 'uppercase',
+        },
+        reviewTitle: {
+            ...theme.typography.h2,
+            fontSize: 18,
+            color: colors.text,
+            marginBottom: 4,
+        },
+        reviewBody: {
+            ...theme.typography.body,
+            color: colors.textSecondary,
+            lineHeight: 22,
+        },
+        reviewAction: {
+            color: theme.colors.primary,
+            fontWeight: '700',
+        },
+        statsGrid: {
+            flexDirection: 'row',
+            flexWrap: 'wrap',
+            gap: 10,
+            marginBottom: theme.spacing.lg,
+        },
+        statCard: {
+            backgroundColor: colors.card,
+            borderRadius: theme.borderRadius.md,
+            padding: theme.spacing.md,
+            width: '48%',
+            alignItems: 'center',
+        },
+        statLabel: {
+            fontSize: 12,
+            color: colors.textSecondary,
+            marginBottom: 4,
+        },
+        statValue: {
+            fontSize: 18,
+            fontWeight: '700',
+            color: theme.colors.primary,
+            textAlign: 'center',
+        },
+        chartContainer: {
+            backgroundColor: colors.card,
+            borderRadius: theme.borderRadius.lg,
+            padding: theme.spacing.md,
+            marginBottom: theme.spacing.lg,
+            alignItems: 'center',
+        },
+        chartTitle: {
+            ...theme.typography.h2,
+            marginBottom: theme.spacing.md,
+            color: colors.text,
+        },
+        emptyText: {
+            ...theme.typography.body,
+            color: colors.textSecondary,
+            marginVertical: theme.spacing.xl,
+        },
+    });
 
 export default AnalyticsScreen;

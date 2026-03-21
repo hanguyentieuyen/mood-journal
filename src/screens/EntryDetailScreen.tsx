@@ -8,8 +8,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { RootStackParamList } from '../types';
 import { useStore } from '../services/store';
 import { theme } from '../constants/theme';
-import { MOODS } from '../constants/moods';
 import { useTheme } from '../constants/ThemeContext';
+import { resolveMoodForEntry } from '../services/moodResolver';
 
 type DetailScreenRouteProp = RouteProp<RootStackParamList, 'EntryDetail'>;
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'EntryDetail'>;
@@ -18,12 +18,12 @@ const EntryDetailScreen = () => {
     const navigation = useNavigation<NavigationProp>();
     const route = useRoute<DetailScreenRouteProp>();
     const { entryId } = route.params;
-    const { entries, deleteEntry } = useStore();
+    const { entries, customMoods, deleteEntry } = useStore();
     const { colors } = useTheme();
     const styles = useMemo(() => createStyles(colors), [colors]);
 
     const entry = entries.find((e) => e.id === entryId);
-    const mood = MOODS.find((m) => m.id === entry?.moodId);
+    const mood = entry ? resolveMoodForEntry(entry, customMoods) : null;
 
     if (!entry || !mood) {
         return (
