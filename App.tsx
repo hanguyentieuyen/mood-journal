@@ -16,6 +16,8 @@ import { theme } from './src/constants/theme';
 
 import { ThemeProvider, useTheme } from './src/constants/ThemeContext';
 
+import { View } from 'react-native';
+
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 const RootNavigator = () => {
@@ -34,33 +36,35 @@ const RootNavigator = () => {
   };
 
   return (
-    <NavigationContainer theme={navigationTheme}>
-      <Stack.Navigator
-        screenOptions={{
-          headerShown: false,
-          contentStyle: { backgroundColor: colors.background },
-          animation: 'slide_from_right',
-        }}
-      >
-        <Stack.Screen name="Home" component={HomeScreen} />
-        <Stack.Screen
-          name="AddEntry"
-          component={AddEntryScreen}
-          options={{ presentation: 'modal' }}
-        />
-        <Stack.Screen name="DayEntries" component={DayEntriesScreen} />
-        <Stack.Screen name="EntryDetail" component={EntryDetailScreen} />
-        <Stack.Screen name="Stats" component={AnalyticsScreen} />
-        <Stack.Screen name="WeeklyReview" component={WeeklyReviewScreen} />
-        <Stack.Screen name="Settings" component={SettingsScreen} />
-        <Stack.Screen 
-          name="ManageMoods" 
-          component={ManageMoodsScreen} 
-          options={{ presentation: 'modal' }}
-        />
-      </Stack.Navigator>
-      <StatusBar style={themeType === 'dark' ? 'light' : 'dark'} />
-    </NavigationContainer>
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <NavigationContainer theme={navigationTheme}>
+        <Stack.Navigator
+          screenOptions={{
+            headerShown: false,
+            contentStyle: { backgroundColor: colors.background },
+            animation: 'slide_from_right',
+          }}
+        >
+          <Stack.Screen name="Home" component={HomeScreen} />
+          <Stack.Screen
+            name="AddEntry"
+            component={AddEntryScreen}
+            options={{ presentation: 'modal' }}
+          />
+          <Stack.Screen name="DayEntries" component={DayEntriesScreen} />
+          <Stack.Screen name="EntryDetail" component={EntryDetailScreen} />
+          <Stack.Screen name="Stats" component={AnalyticsScreen} />
+          <Stack.Screen name="WeeklyReview" component={WeeklyReviewScreen} />
+          <Stack.Screen name="Settings" component={SettingsScreen} />
+          <Stack.Screen 
+            name="ManageMoods" 
+            component={ManageMoodsScreen} 
+            options={{ presentation: 'modal' }}
+          />
+        </Stack.Navigator>
+        <StatusBar style={themeType === 'dark' ? 'light' : 'dark'} />
+      </NavigationContainer>
+    </View>
   );
 };
 

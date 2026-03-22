@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
     View,
     Text,
@@ -7,9 +7,11 @@ import {
     Switch,
     Alert,
     ScrollView,
+    Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
+import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { useStore } from '../services/store';
 import { theme } from '../constants/theme';
 import { useTheme } from '../constants/ThemeContext';
@@ -20,6 +22,32 @@ const SettingsScreen = () => {
     const { clearEntries, reminder, updateReminder } = useStore();
     const { themeType, setTheme, colors } = useTheme();
     const styles = useMemo(() => createStyles(colors), [colors]);
+
+    const [showTimePicker, setShowTimePicker] = useState(false);
+
+    const reminderDate = useMemo(() => {
+        const d = new Date();
+        const [h, m] = reminder.time.split(':').map(Number);
+        d.setHours(h, m, 0, 0);
+        return d;
+    }, [reminder.time]);
+
+    const handleTimeChange = async (event: DateTimePickerEvent, selectedDate?: Date) => {
+        if (Platform.OS === 'android') {
+            setShowTimePicker(false);
+        }
+        if (selectedDate) {
+            const hours = selectedDate.getHours().toString().padStart(2, '0');
+            const minutes = selectedDate.getMinutes().toString().padStart(2, '0');
+            const newTime = `${hours}:${minutes}`;
+            
+            updateReminder({ time: newTime });
+            
+            if (reminder.enabled) {
+                await scheduleDailyReminder(newTime);
+            }
+        }
+    };
 
     const handleClearData = () => {
         Alert.alert(
@@ -79,10 +107,10 @@ const SettingsScreen = () => {
                     </View>
 
                     <View style={styles.row}>
-                        <View>
+                        <TouchableOpacity onPress={() => setShowTimePicker(true)}>
                             <Text style={styles.rowLabel}>Daily Reminder</Text>
-                            <Text style={styles.rowSubLabel}>At {reminder.time}</Text>
-                        </View>
+                            <Text style={styles.rowSubLabel}>At {reminder.time} (Tap to edit)</Text>
+                        </TouchableOpacity>
                         <Switch
                             value={reminder.enabled}
                             onValueChange={handleToggleReminder}
@@ -108,6 +136,15 @@ const SettingsScreen = () => {
                     <Text style={styles.aboutText}>Made with 💜</Text>
                 </View>
             </ScrollView>
+
+            {showTimePicker && (
+                <DateTimePicker
+                    value={reminderDate}
+                    mode="time"
+                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                    onChange={handleTimeChange}
+                />
+            )}
         </SafeAreaView>
     );
 };
